@@ -63,4 +63,5 @@ function pluck(tweet, keys){
 }
 
 // Make it go!
+console.log("going");
 initiateStream(screen_name);
