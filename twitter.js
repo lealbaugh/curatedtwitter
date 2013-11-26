@@ -1,7 +1,7 @@
 // var keys = require("./apikeys.js") || null;
 
 var mongo = require('mongodb');
-var mongoUri = process.env.MONGOHQ_URL;
+var mongoUri = process.env.MONGOHQ_URL || require("./apikeys.js").mongoURL;
 
 function putInCollection(thisobject, collectionname){
 	mongo.Db.connect(mongoUri, function (err, db) {
@@ -25,10 +25,10 @@ function putInCollection(thisobject, collectionname){
 var screen_name = "gnurr";
 var twitter = require('ntwitter');
 var twit = new twitter({
-	consumer_key: process.env.TWITTER_CONSUMER_KEY,
-	consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
-	access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
-	access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+	consumer_key: process.env.TWITTER_CONSUMER_KEY || require("./apikeys.js").consumer_key,
+	consumer_secret: process.env.TWITTER_CONSUMER_SECRET || require("./apikeys.js").consumer_secret,
+	access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY || require("./apikeys.js").access_token_key,
+	access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET || require("./apikeys.js").access_token_secret
 });
 
 
