@@ -1,1 +1,1 @@
-web: node twitter.js
+worker: node twitter.js
