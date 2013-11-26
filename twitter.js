@@ -1,7 +1,32 @@
-var twitter = require('ntwitter');
 var keys = require("./apikeys.js");
-var screen_name = "gnurr";
 
+var mongo = require('mongodb');
+var mongoUri = keys.mongoURL || process.env.MONGOHQ_URL;
+
+function putInCollection(thisobject, collectionname){
+	mongo.Db.connect(mongoUri, function (err, db) {
+		if (err) {
+			console.log(err);
+		}
+		console.log("Connected to db.");
+		db.collection(collectionname, function(er, collection) {
+			console.log("Got collection ", collectionname);
+			collection.insert(thisobject, {safe: true}, function(er,rs) {
+				if (er) {
+					console.log(er);
+				}
+				console.log("Inserted: ", thisobject);
+				db.close();
+			});
+		});
+	});
+};
+
+putInCollection({"Name":"david", "Awesomeness":"High"}, "mydocs");
+
+
+var screen_name = "gnurr";
+var twitter = require('ntwitter');
 var twit = new twitter({
 	consumer_key: keys.consumer_key,
 	consumer_secret: keys.consumer_secret,
@@ -12,13 +37,14 @@ var twit = new twitter({
 
 function openStream(user_id){
 	twit.stream('statuses/filter', {follow:user_id}, function(stream){
-		console.log("making a stream for user ", user_id);
+		console.log("Making a stream for user #", user_id, ".");
 		stream.on('data', function (data){
 			if (data.id_str){
-				id = data.id_str				
-				twit.retweetStatus(id, function(data){
-					console.log("retweeted!");
-				});
+				id = data.id_str
+				putInCollection(data, "tweets");		
+				// twit.retweetStatus(id, function(data){
+				// 	console.log("retweeted!");
+				// });
 			}	
 		});
 	});
@@ -27,7 +53,6 @@ function openStream(user_id){
 
 function initiateStream(screen_name) {
 	twit.get("/users/show.json", {"screen_name":screen_name}, function(fake, data) {
-		console.log("USER ID: ",data.id);
 		openStream(data.id);
 	});
 };
@@ -41,8 +66,4 @@ function pluck(tweet, keys){
 }
 
 // Make it go!
-initiateStream(screen_name);
-
-// twit.updateStatus("Hello?", null, function(){
-// 	console.log("tweeted");
-// })
+// initiateStream(screen_name);
