@@ -15,7 +15,7 @@ function putInCollection(thisobject, collectionname){
 				if (er) {
 					console.log(er);
 				}
-				console.log("Inserted: ", thisobject);
+				console.log("Inserted tweet into DB.");
 				db.close();
 			});
 		});
@@ -38,12 +38,15 @@ function openStream(user_id){
 		stream.on('data', function (data){
 			if (data.id_str){
 				id = data.id_str
-				putInCollection(data, "tweets");		
+				putInCollection(data, "tweets");
 				twit.retweetStatus(id, function(data){
 					console.log("retweeted!");
 				});
 			}	
 		});
+		// stream.on('event', function (e){
+		// 	console.log(e);
+		// })
 	});
 }
 
@@ -64,4 +67,5 @@ function pluck(tweet, keys){
 
 // Make it go!
 console.log("going");
+// putInCollection({"Hi":"hi"}, "tweets");
 initiateStream(screen_name);
