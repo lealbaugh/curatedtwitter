@@ -40,62 +40,45 @@ var sourcetweeter = new twitter({
 });
 
 
-function openStream(user_id){
-	twit.stream('statuses/filter', {follow:user_id}, function(stream){
-		console.log("Making a stream for user #", user_id, ".");
-		stream.on('data', function (data){
-			if (data.id_str){
-				id = data.id_str
-				putInCollection(data, "tweets");
-				twit.retweetStatus(id, function(data){
-					console.log("retweeted!");
-				});
-			}	
-		});
-		stream.on('event', function (e){
-			console.log(e);
-		})
-	});
-}
-
-function initiateStream(screen_name) {
-	twit.get("/users/show.json", {"screen_name":screen_name}, function(fake, data) {
-		openStream(data.id);
-	});
-};
-
-
 function openUserStream(source, re){
 	source.stream('user', {}, function(stream){
 		console.log("Making my stream.");
 		stream.on('data', function (data){
 			if(data.event == "favorite") {
-				console.log(data.source.name," favorited ", data.target.name,"\'s tweet: ", data.target_object.text, " (", data.target_object.id_str, ")")
-				thistweet = {
-					"tweet_id": data.target_object.id_str,
-					"favorited_by": data.source.name,
-					"author": data.target.name,
-					"text": data.target_object.text,
-					"retweeted": false
-				}
+				console.log(data.source.name+" favorited "+data.target.name+"\'s tweet: "+data.target_object.text+" ("+data.target_object.id_str+")");
+				thistweet = condenseTweet(data.target_object);
 				putInCollection(thistweet, "tweets");
 			}
+			if(data.retweeted_status) {
+				console.log("Retweeted by "+data.user.name+": "+data.retweeted_status.text);
+				thistweet = condenseTweet(data.retweeted_status);
+				putInCollection(thistweet, "tweets");
+			}
+
 			console.log("-------------------------------------------------------------------------------------------------------");
-			// if (data.id_str){
-			// 	id = data.id_str
-			// 	putInCollection(data, "tweets");
-			// 	re.retweetStatus(id, function(data){
-			// 		console.log("retweeted!");
-			// 	});
-			// }	
 		});
-		// stream.on('event', function (e){
-		// 	console.log(e);
-		// })
 	});
 }
 
+// if retweeted = false:
+// 	if (tweet is notable):
+// 		retweet it
+// 		notate it as retweeted
 
+// 		"favorited_by": tweet.source.name,
+// 		"retweeted": false,
+
+
+function condenseTweet(tweet) {
+	return {
+		"tweet_id": tweet.id_str,
+		"author": tweet.user.id_str,
+		"author_id": tweet.user.name,
+		"text": tweet.text,
+		"retweet_count": tweet.retweet_count,
+		"favorite_count": tweet.favorite_count
+				}
+}
 
 
 function pluck(tweet, keys){
