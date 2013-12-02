@@ -1,7 +1,7 @@
 var keys = require("./apikeys.js");
 
 var mongo = require('mongodb');
-var mongoUri = process.env.MONGOHQ_URL || require("./apikeys.js").mongoURL;
+var mongoUri = keys.mongoURL;
 
 function putInCollection(thisobject, collectionname){
 	mongo.Db.connect(mongoUri, function (err, db) {
@@ -15,21 +15,15 @@ function putInCollection(thisobject, collectionname){
 				if (er) {
 					console.log(er);
 				}
-				console.log("Inserted tweet into DB.");
+				console.log("Inserted tweet into DB:", thisobject);
 				db.close();
 			});
 		});
 	});
 };
 
-var screen_name = "gnurr";
+
 var twitter = require('ntwitter');
-// var twit = new twitter({
-// 	consumer_key: process.env.TWITTER_CONSUMER_KEY || require("./apikeys.js").consumer_key,
-// 	consumer_secret: process.env.TWITTER_CONSUMER_SECRET || require("./apikeys.js").consumer_secret,
-// 	access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY || require("./apikeys.js").access_token_key,
-// 	access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET || require("./apikeys.js").access_token_secret
-// });
 
 var retweeter = new twitter({
 	consumer_key: keys.retweeter_consumer_key,
@@ -72,29 +66,34 @@ function initiateStream(screen_name) {
 
 
 function openUserStream(source, re){
-	source.stream('user', {follow:user_id}, function(stream){
+	source.stream('user', {}, function(stream){
 		console.log("Making my stream.");
 		stream.on('data', function (data){
-			if (data.id_str){
-				id = data.id_str
-				putInCollection(data, "tweets");
-				re.retweetStatus(id, function(data){
-					console.log("retweeted!");
-				});
-			}	
+			if(data.event == "favorite") {
+				console.log(data.source.name," favorited ", data.target.name,"\'s tweet: ", data.target_object.text, " (", data.target_object.id_str, ")")
+				thistweet = {
+					"tweet_id": data.target_object.id_str,
+					"favorited_by": data.source.name,
+					"author": data.target.name,
+					"text": data.target_object.text,
+					"retweeted": false
+				}
+				putInCollection(thistweet, "tweets");
+			}
+			console.log("-------------------------------------------------------------------------------------------------------");
+			// if (data.id_str){
+			// 	id = data.id_str
+			// 	putInCollection(data, "tweets");
+			// 	re.retweetStatus(id, function(data){
+			// 		console.log("retweeted!");
+			// 	});
+			// }	
 		});
-		stream.on('event', function (e){
-			console.log(e);
-		})
+		// stream.on('event', function (e){
+		// 	console.log(e);
+		// })
 	});
 }
-
-// {
-// 	"tweet_id": id_str,
-// 	"favorite_count": favorite_count,
-// 	"retweeted": false
-// }
-
 
 
 
