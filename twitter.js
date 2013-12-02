@@ -23,6 +23,50 @@ function putInCollection(thisobject, collectionname){
 };
 
 
+
+function checkIntoDatabase(thistweet, collectionname) {
+	// The findAndModify command atomically modifies and returns a single document. By default, the returned document does not include the modifications made on the update. To return the document with the modifications made on the update, use the "new" option.
+	db.collection(collectionname).findAndModify({"tweet_id": thistweet.tweet_id}, [], {
+		$set: {
+			"tweet_id": thistweet.tweet_id,
+			"author": thistweet.author,
+			"author_id": thistweet.author_id,
+			"text": thistweet.text,
+			"retweet_count": thistweet.retweet_count,
+			"favorite_count": thistweet.favorite_count,
+			"retweeted_by_bot": "false",
+			}
+		}, {upsert: "true"}, function(err, object, thistweet, collectionname) {
+			if (err) {
+				console.warn(err.message);
+			}
+			else {
+				if (object.value == null || object.retweeted_by_bot == "false") {
+					if (tweetQualifiesForRetweet(thistweet)) {
+						retweet(thistweet.tweet_id, collectionname);
+					}
+				}
+		}
+	});
+}
+
+function tweetQualifiesForRetweet(tweet) {
+	return true;
+	// return thistweet.retweet_count*2 + thistweet.favorite_count > 2;
+}
+
+function retweet(tweet_id, collectionname) {
+	retweeter.retweetStatus(tweet_id, function(data){
+		console.log("retweeted!");
+		});
+	db.collection(collectionname).findAndModify({"tweet_id": tweet_id}, [], {$set: { "retweeted_by_bot": "true" } }, {}, function(err, object) {
+		if (err) console.warn(err.message);
+		else console.log("logged retweet!");
+	});
+
+}
+
+
 var twitter = require('ntwitter');
 
 var retweeter = new twitter({
@@ -47,12 +91,12 @@ function openUserStream(source, re){
 			if(data.event == "favorite") {
 				console.log(data.source.name+" favorited "+data.target.name+"\'s tweet: "+data.target_object.text+" ("+data.target_object.id_str+")");
 				thistweet = condenseTweet(data.target_object);
-				putInCollection(thistweet, "tweets");
+				checkIntoDatabase(thistweet, "tweets");
 			}
 			if(data.retweeted_status) {
 				console.log("Retweeted by "+data.user.name+": "+data.retweeted_status.text);
 				thistweet = condenseTweet(data.retweeted_status);
-				putInCollection(thistweet, "tweets");
+				checkIntoDatabase(thistweet, "tweets");
 			}
 
 			console.log("-------------------------------------------------------------------------------------------------------");
@@ -60,13 +104,6 @@ function openUserStream(source, re){
 	});
 }
 
-// if retweeted = false:
-// 	if (tweet is notable):
-// 		retweet it
-// 		notate it as retweeted
-
-// 		"favorited_by": tweet.source.name,
-// 		"retweeted": false,
 
 
 function condenseTweet(tweet) {
@@ -76,7 +113,8 @@ function condenseTweet(tweet) {
 		"author_id": tweet.user.name,
 		"text": tweet.text,
 		"retweet_count": tweet.retweet_count,
-		"favorite_count": tweet.favorite_count
+		"favorite_count": tweet.favorite_count,
+		"retweeted_by_bot": "false",
 				}
 }
 
