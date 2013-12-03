@@ -1,10 +1,11 @@
+//--API keys setup for Twitter and MongoHQ----------------
+
 var keys = require("./apikeys.js");
 
-var mongo = require('mongodb');
+var mongo = require('mongodb'); //https://npmjs.org/package/mongodb
 var mongoUri = keys.mongoURL;
 
-
-var twitter = require('ntwitter');
+var twitter = require('ntwitter'); //https://github.com/AvianFlu/ntwitter
 var source_id_str = keys.source_id_str;
 
 var retweeter = new twitter({
@@ -21,14 +22,17 @@ var sourcetweeter = new twitter({
 	access_token_secret: keys.source_access_token_secret
 });
 
+//--Function to change for different retweet cutoffs
+function tweetQualifiesForRetweet(tweet) {
+	return tweet.retweet_count*2 + tweet.favorite_count >= 2;
+}
 
 function checkIntoDatabase(thistweet, collectionname) {
 	mongo.Db.connect(mongoUri, function (err, db) {
 		if (err) {
 			console.log(err);
 		}
-		// console.log("Connected to db.");
-		// The findAndModify command atomically modifies and returns a single document. By default, the returned document does not include the modifications made on the update. To return the document with the modifications made on the update, use the "new" option.
+		// "The findAndModify command atomically modifies and returns a single document. By default, the returned document does not include the modifications made on the update. To return the document with the modifications made on the update, use the "new" option." http://docs.mongodb.org/manual/reference/command/findAndModify/
 		db.collection(collectionname).findAndModify({"tweet_id": thistweet.tweet_id}, [], {
 			$set: {
 				"tweet_id": thistweet.tweet_id,
@@ -37,8 +41,6 @@ function checkIntoDatabase(thistweet, collectionname) {
 				"text": thistweet.text,
 				"retweet_count": thistweet.retweet_count,
 				"favorite_count": thistweet.favorite_count,
-				// "retweeted_by_bot": "false",
-				// let's try not setting the retweeted_by_bot field, and using "new"
 				}
 			}, {"upsert": "true", "new": "true"}, function(err, object, thistweet, collectionname) {
 				if (err) {
@@ -56,11 +58,6 @@ function checkIntoDatabase(thistweet, collectionname) {
 	});
 }
 
-
-
-function tweetQualifiesForRetweet(tweet) {
-	return tweet.retweet_count*2 + tweet.favorite_count >= 2;
-}
 
 function retweet(tweet_id, collectionname) {
 	retweeter.retweetStatus(tweet_id, function(data){
@@ -81,32 +78,11 @@ function retweet(tweet_id, collectionname) {
 }
 
 
-function openUserStream(source, re){
-	source.stream('user', {}, function(stream){
-		console.log("Making my stream.");
-		stream.on('data', function (data){
-			if(data.event == "favorite") {
-				console.log(data.source.name+" favorited "+data.target.name+"\'s tweet: "+data.target_object.text);
-				retrieveTweetDataAndCheckIn(data.target_object.id_str);
-			}
-			if(data.retweeted_status) {
-				console.log(data.user.name+" retweeted "+data.retweeted_status.user.name+"\'s tweet:"+data.retweeted_status.text);
-				retrieveTweetDataAndCheckIn(data.retweeted_status.id_str);
-			}
-			console.log("-------------------------------------------------------------------------------------------------------");
-		});
-	});
-}
-
-
-function retrieveTweetDataAndCheckIn(id_str) {
-	sourcetweeter.showStatus(id_str, function (err, tweet){
+function retrieveTweetDataAndCheckIn(id_str, tweeter) {
+	tweeter.showStatus(id_str, function (err, tweet){
 		if (tweet.user.id_str == source_id_str) {
-			console.log("Tweet was by Dannel!");
+			// console.log("Tweet was by Dannel!");
 			checkIntoDatabase(condenseTweet(tweet), "tweets");
-		}
-		else {
-			console.log("Tweet was by somebody else.")
 		}
 	});	
 }
@@ -125,14 +101,23 @@ function condenseTweet(tweet) {
 }
 
 
-function pluck(tweet, keys){
-	return keys.reduce(function(a, k){
-		a[k] = tweet[k];
-		return a;
-	}, {});
+function openUserStream(source, re){
+	source.stream('user', {}, function(stream){
+		console.log("Making my stream.");
+		stream.on('data', function (data){
+			if(data.event == "favorite") {
+				console.log(data.source.name+" favorited "+data.target.name+"\'s tweet: "+data.target_object.text);
+				retrieveTweetDataAndCheckIn(data.target_object.id_str, source);
+			}
+			if(data.retweeted_status) {
+				console.log(data.user.name+" retweeted "+data.retweeted_status.user.name+"\'s tweet:"+data.retweeted_status.text);
+				retrieveTweetDataAndCheckIn(data.retweeted_status.id_str, source);
+			}
+			console.log("-------------------------------------------------------------------------------------------------------");
+		});
+	});
 }
 
-// Make it go!
-console.log("going");
-// putInCollection({"Hi":"hi"}, "tweets");
+// ------------------------Make it go!--------------------------------------------------------
+console.log("Starting up...");
 openUserStream(sourcetweeter, retweeter);
