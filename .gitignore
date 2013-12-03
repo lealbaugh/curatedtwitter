@@ -3,3 +3,4 @@ using-twitter-node.js
 node_modules/
 .DS_Store
 AWSmicrotier.pem
+cleanmongo.js
